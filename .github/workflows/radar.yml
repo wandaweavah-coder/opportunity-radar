@@ -1,0 +1,49 @@
+name: radar
+on:
+  schedule:
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+      TELEGRAM_CHAT: ${{ secrets.TELEGRAM_CHAT }}
+      ETSY_API_KEY: ${{ secrets.ETSY_API_KEY }}
+      YT_API_KEY: ${{ secrets.YT_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install requests pytrends pandas numpy
+      - name: Crypto scan
+        run: python crypto.py
+        continue-on-error: true
+      - name: Save crypto results
+        run: |
+          git config user.name radar-bot
+          git config user.email bot@users.noreply.github.com
+          git add radar.db || true
+          git commit -m "crypto scan" || true
+          git pull --rebase || true
+          git push || true
+      - name: Digital and service gaps
+        run: python gaps.py
+        continue-on-error: true
+      - name: Product scan
+        run: python radar.py
+        continue-on-error: true
+      - name: YouTube channel scan
+        run: python channels.py
+        continue-on-error: true
+      - name: Save all results
+        run: |
+          git add radar.db || true
+          git commit -m "scan" || true
+          git pull --rebase || true
+          git push
