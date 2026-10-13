@@ -1,0 +1,178 @@
+=====================================================
+  OPPORTUNITY RADAR - LIVE VERSION, SET UP FROM YOUR PHONE
+  (GitHub + Streamlit Community Cloud, both free)
+=====================================================
+WHAT YOU GET
+  A private-looking website that runs on its own. Every 6 hours
+  GitHub scans the internet and saves the results. Streamlit shows
+  them on one page with 4 tabs: Products, Channels, Digital &
+  Services, and Crypto. You open it from your phone like an app.
+
+WHAT YOU NEED
+  - A phone with a browser (Safari or Chrome)
+  - An email address
+  - About 45 minutes the first time. No money.
+
+-----------------------------------------------------
+PART 0: GET THE FILES READY ON YOUR PHONE
+-----------------------------------------------------
+1. Download opportunity-radar-phone.zip to your phone.
+2. Unzip it:
+   iPhone: open the Files app, go to Downloads, tap the zip.
+           A folder appears next to it.
+   Android: open Files (or My Files), tap the zip, tap Extract.
+3. Open the new folder. You should see 14 files, no subfolders.
+
+-----------------------------------------------------
+PART 1: GITHUB (this stores the files and runs the scans)
+-----------------------------------------------------
+1. In your browser go to github.com and tap Sign up. Make an
+   account and confirm your email.
+2. Tap the + at the top, then New repository.
+3. Repository name: opportunity-radar
+4. Choose PUBLIC. (Public = unlimited free scanning time.)
+5. Tick "Add a README file". Tap Create repository.
+6. Tap Add file, then Upload files.
+7. Tap "choose your files". Browse to the unzipped folder, select
+   ALL the files (iPhone: tap Select, then Select All. Android:
+   press and hold one file, then select all). Tap Open/Done.
+8. Wait until all 14 files are listed. Scroll down and tap
+   Commit changes.
+   TIP: if the upload page looks broken, use your browser menu and
+   choose "Request desktop site", then try again.
+9. Create the scheduler file:
+   a) Tap Add file, then Create new file.
+   b) In the name box type exactly:  .github/workflows/radar.yml
+      (typing the slashes creates the folders for you)
+   c) Open workflow.yml (from your unzipped folder, or copy it
+      from the bottom of this page), select all, copy, and paste
+      it into the big text box.
+   d) Tap Commit changes, then Commit changes again.
+10. (Optional) Add keys: Settings, then Secrets and variables, then
+    Actions, then New repository secret. Names you can add:
+    YT_API_KEY, GEMINI_API_KEY, ETSY_API_KEY, TELEGRAM_TOKEN,
+    TELEGRAM_CHAT. The crypto scan needs no key.
+
+-----------------------------------------------------
+PART 2: START THE FIRST SCAN
+-----------------------------------------------------
+1. In your repository tap the Actions tab. If you see a green
+   button saying you understand your workflows, tap it.
+2. Tap "radar" in the list, tap Run workflow, then tap the
+   green Run workflow button.
+3. Wait. Crypto results are saved after about 3 to 5 minutes.
+   The whole scan takes about 30 to 60 minutes. A green check
+   means it finished.
+4. If a step shows a red X: tap it, read the last lines, and take
+   a screenshot. (Yellow warnings on single steps are normal. The
+   Reddit and Google Trends parts are sometimes blocked.)
+
+-----------------------------------------------------
+PART 3: STREAMLIT (this turns the results into a website)
+-----------------------------------------------------
+1. Go to share.streamlit.io and tap Continue with GitHub.
+   Allow access.
+2. Tap Create app, then choose to deploy from GitHub.
+3. Fill in:
+     Repository:       your-name/opportunity-radar
+     Branch:           main
+     Main file path:   dashboard.py
+4. Tap Advanced settings. Pick Python 3.12 if offered. In the
+   Secrets box type (use your own password):
+     APP_PASSWORD = "choose-a-password"
+   Optional: GEMINI_API_KEY = "your key"
+5. Tap Deploy. Wait 2 to 5 minutes. You get a web address like
+   yourname-opportunity-radar.streamlit.app. Save it.
+6. Enter your password. You should see 4 tabs.
+
+-----------------------------------------------------
+PART 4: PUT IT ON YOUR HOME SCREEN
+-----------------------------------------------------
+iPhone (Safari): tap the Share button, then Add to Home Screen.
+Android (Chrome): tap the 3 dots, then Add to Home screen.
+
+-----------------------------------------------------
+USING IT
+-----------------------------------------------------
+- The data refreshes every 6 hours by itself.
+- To refresh now: GitHub, Actions, radar, Run workflow.
+- Streamlit updates the page by itself after each scan.
+- If the page says it went to sleep, tap the button to wake it.
+- The Crypto tab Scorecard needs about a week of scans.
+- Not financial advice. Forecasts are estimates, and most coins
+  show no edge over a naive guess in past tests.
+
+-----------------------------------------------------
+IF SOMETHING GOES WRONG
+-----------------------------------------------------
+"No data yet" on a tab:
+   The first scan has not finished or saved yet. Check the Actions
+   tab. For Channels you also need the YT_API_KEY secret.
+"ModuleNotFoundError":
+   A file was missed in the upload. Check the repository has all 13
+   files at the top level, especially requirements.txt.
+Scan stopped running after a long time:
+   GitHub pauses schedules on quiet public repos. Go to Actions,
+   tap radar, and tap Enable workflow, then Run workflow.
+Lots of zeros in Products:
+   Reddit or Google blocked GitHub's servers. The Crypto tab is not
+   affected because it tries Binance, then Kraken, then Coinbase.
+Privacy:
+   A public repository lets anyone who finds it see your results
+   file. Your keys stay hidden in Secrets, and the app has a
+   password. A private repository works too, but then change the
+   schedule to every 12 hours ("0 */12 * * *") so you do not run
+   out of free scanning minutes.
+
+-----------------------------------------------------
+THE SCHEDULER FILE (copy everything below into radar.yml)
+-----------------------------------------------------
+name: radar
+on:
+  schedule:
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+      TELEGRAM_CHAT: ${{ secrets.TELEGRAM_CHAT }}
+      ETSY_API_KEY: ${{ secrets.ETSY_API_KEY }}
+      YT_API_KEY: ${{ secrets.YT_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install requests pytrends pandas numpy
+      - name: Crypto scan
+        run: python crypto.py
+        continue-on-error: true
+      - name: Save crypto results
+        run: |
+          git config user.name radar-bot
+          git config user.email bot@users.noreply.github.com
+          git add radar.db || true
+          git commit -m "crypto scan" || true
+          git pull --rebase || true
+          git push || true
+      - name: Digital and service gaps
+        run: python gaps.py
+        continue-on-error: true
+      - name: Product scan
+        run: python radar.py
+        continue-on-error: true
+      - name: YouTube channel scan
+        run: python channels.py
+        continue-on-error: true
+      - name: Save all results
+        run: |
+          git add radar.db || true
+          git commit -m "scan" || true
+          git pull --rebase || true
+          git push
